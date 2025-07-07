@@ -225,6 +225,18 @@ export default {
             a.click()
             document.body.removeChild(a)
             window.URL.revokeObjectURL(url)
+        },
+        async initializeChatBot () {
+            const response = await fetch('http://localhost:8001/api/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    parsedMessages: this.state.messages
+                })
+            })
+            const data = await response.json()
+            this.state.chatBotSessionID = data.session_id
+            console.log('Backend response:', data)
         }
     },
     mounted () {
@@ -250,6 +262,7 @@ export default {
                 this.$eventHub.$emit('messages')
             } else if (event.data.messagesDoneLoading) {
                 this.$eventHub.$emit('messagesDoneLoading')
+                this.initializeChatBot()
             } else if (event.data.messageType) {
                 this.state.messages[event.data.messageType] = event.data.messageList
                 this.$eventHub.$emit('messages')

@@ -17,7 +17,7 @@
                 <i class="fas fa-home"></i>Home</a>
                 <!-- Plot -->
                 <a :class="selected === 'plot' ? 'selected' : ''" @click="selected='plot'"
-                   v-if="state.processDone"> <i class="fas fa-chart-line"></i>Plot</a>
+                    v-if="state.processDone"> <i class="fas fa-chart-line"></i>Plot</a>
                 <!-- more -->
                 <a :class="selected ==='other' ? 'selected' : ''" @click="selected='other'" v-if="state.processDone">
                     <i class="fas fa-ellipsis-v"></i>
@@ -43,34 +43,34 @@
                     <a class="centered-section"> Show / hide </a>
                     <div v-if="state.processDone" class="show-hide">
                         <label v-if="state.params">
-                          <i class="fa fa-cogs circle"></i>
-                          <input type="checkbox" v-model="state.showParams">
-                          <a class="check-font"> Parameters </a>
+                            <i class="fa fa-cogs circle"></i>
+                            <input type="checkbox" v-model="state.showParams">
+                            <a class="check-font"> Parameters </a>
                         </label>
                         <label>
-                          <i class="fa fa-gamepad circle"></i>
-                          <input type="checkbox" v-model="state.showRadio">
-                          <a class="check-font"> Radio Sticks </a>
+                            <i class="fa fa-gamepad circle"></i>
+                            <input type="checkbox" v-model="state.showRadio">
+                            <a class="check-font"> Radio Sticks </a>
                         </label>
                         <label>
-                          <i class="fa fa-compass circle"></i>
-                          <input type="checkbox" v-model="state.showMagfit">
-                          <a class="check-font"> Mag Fit Tool </a>
+                            <i class="fa fa-compass circle"></i>
+                            <input type="checkbox" v-model="state.showMagfit">
+                            <a class="check-font"> Mag Fit Tool </a>
                         </label>
                         <label>
-                          <i class="fa fa-compass circle"></i>
-                          <input type="checkbox" v-model="state.showEkfHelper">
-                          <a class="check-font"> EKF helper </a>
+                            <i class="fa fa-compass circle"></i>
+                            <input type="checkbox" v-model="state.showEkfHelper">
+                            <a class="check-font"> EKF helper </a>
                         </label>
                         <label v-if="state.textMessages">
-                          <i class="fa fa-comment circle"></i>
-                          <input type="checkbox" v-model="state.showMessages">
-                          <a class="check-font"> Messages </a>
+                            <i class="fa fa-comment circle"></i>
+                            <input type="checkbox" v-model="state.showMessages">
+                            <a class="check-font"> Messages </a>
                         </label>
                         <label>
-                          <i class="fa fa-plane-departure circle"></i>
-                          <input type="checkbox" v-model="state.showAttitude">
-                          <a class="check-font"> Attitude </a>
+                            <i class="fa fa-plane-departure circle"></i>
+                            <input type="checkbox" v-model="state.showAttitude">
+                            <a class="check-font"> Attitude </a>
                         </label>
                         <label v-if="!recording" v-on:click="startCapture">
                             <i class="fa fa-play circle"></i>
@@ -83,7 +83,7 @@
                         <label  v-if="this.chunks" v-on:click="download">
                             <i class="fa fa-download circle"></i>
                             <a class="check-font download-text" v-bind:href="downloadURL"
-                               v-bind:download="fileName" ref="downloadFile"> Download </a>
+                                v-bind:download="fileName" ref="downloadFile"> Download </a>
                         </label>
                         <label v-if="state.logType==='tlog'" v-on:click="downloadTrimmed">
                             <i
@@ -99,6 +99,11 @@
                             </i>
                             <input type="checkbox" v-model="state.showDeviceIDs">
                             <a class="check-font">  Sensors </a>
+                        </label>
+                        <label>
+                            <i class="fa fa-comment circle"></i>
+                            <input type="checkbox" v-model="state.showChatBox">
+                            <a class="check-font"> Chatbot </a>
                         </label>
                     </div>
                     <div v-if="state.files" class="show-hide">
@@ -231,9 +236,9 @@ export default {
 <style scoped>
 
 @media (min-width: 575px) and (max-width: 992px) {
-       a {
+        a {
         padding: 2px 60px 2px 55px !important;
-       }
+        }
     }
 </style>
 
@@ -357,7 +362,7 @@ a.centered-section {
 
     .circle:hover {
         background-color: rgba(58, 71, 94, 0.63);
-         box-shadow: 0px 0px 12px 0px rgba(24, 106, 173, 0.281);
+            box-shadow: 0px 0px 12px 0px rgba(24, 106, 173, 0.281);
     }
 
     .show-hide input[type=checkbox] {
@@ -502,7 +507,7 @@ a.centered-section {
             border-radius: 2px;
         }
 
-          main {
+            main {
             margin-top: 45px;
         }
 
