@@ -1,6 +1,6 @@
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from openai import OpenAI
 from pydantic import BaseModel
 from agent.PlanExecuteAgent import PlanExecuteAgent
 from agent.utils import get_bin_data
@@ -8,8 +8,9 @@ import os
 from cachetools import TTLCache
 from uuid import uuid4
 from threading import Lock
+import json
 
-##os.environ["OPENAI_API_KEY"] = ...
+os.environ["OPENAI_API_KEY"] = ""
 
 agents = TTLCache(maxsize=20, ttl=1800)
 agent_lock = Lock()
@@ -44,11 +45,26 @@ async def initialize_endpoint(req: InitializeRequest):
         agents[session_id] = agent
     return {"message": "Agent initialized successfully", "session_id": session_id}
 
-@app.post("/api/chat")
-def chat_endpoint(req: ChatRequest):
+# @app.post("/api/chat")
+# def chat_endpoint(req: ChatRequest):
+#     with agent_lock:
+#         agent = agents.get(req.sessionId)
+#     if not agent:
+#         return {"error": "Invalid or expired session ID"}
+#     answer = agent.call(req.message)
+#     return {"response": answer}
+
+@app.get("/api/chat/stream")
+def chat_stream_endpoint(sessionId: str, message: str):
     with agent_lock:
-        agent = agents.get(req.sessionId)
+        agent = agents.get(sessionId)
     if not agent:
-        return {"error": "Invalid or expired session ID"}
-    answer = agent.call(req.message)
-    return {"response": answer}
+        def error_stream():
+            yield json.dumps({"error": "Invalid or expired session ID"})
+        return StreamingResponse(error_stream(), media_type="application/json")
+    
+    def event_stream():
+        for step in agent.call_stream(message):
+            print("step", step)
+            yield f"data: {json.dumps(step)}\n\n"
+    return StreamingResponse(event_stream(), media_type="text/event-stream")

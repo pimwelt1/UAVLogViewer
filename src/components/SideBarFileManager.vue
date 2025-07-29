@@ -236,7 +236,6 @@ export default {
             })
             const data = await response.json()
             this.state.chatBotSessionID = data.session_id
-            console.log('Backend response:', data)
         }
     },
     mounted () {

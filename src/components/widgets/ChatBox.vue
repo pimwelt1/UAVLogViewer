@@ -2,7 +2,7 @@
   <div class="chatbox">
     <div class="chat-messages" ref="messagesContainer">
       <transition-group name="fade-slide" tag="div">
-        <div v-for="(msg, idx) in messages" :key="idx" :class="['message-bubble', msg.role]">
+        <div v-for="(msg, idx) in messages" :key="idx" :class="['message-bubble', msg.role]" :data-type="msg.type">
           <div class="bubble-content">
             <strong v-if="msg.role === 'user'">You:</strong>
             <strong v-else>Bot:</strong>
@@ -15,6 +15,15 @@
       <span class="dot"></span>
       <span class="dot"></span>
       <span class="dot"></span>
+    </div>
+    <div v-if="processing" class="processing-indicator">
+      <div class="processing-content">
+        <span class="processing-dot"></span>
+        <span class="processing-text">
+        {{processing.type === 'analysis' ? 'Analysing ' : ''}}
+        {{processing.content}}
+        </span>
+      </div>
     </div>
     <form @submit.prevent="sendMessage">
       <input
@@ -39,6 +48,7 @@ export default {
         return {
             input: '',
             messages: [],
+            processing: null,
             loading: false,
             state: store,
             width: 320,
@@ -57,18 +67,23 @@ export default {
             const userInput = this.input
             this.input = ''
             this.loading = true
-            try {
-                const response = await fetch('http://localhost:8001/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: userInput, sessionId: this.state.chatBotSessionID })
-                })
-                const data = await response.json()
-                this.messages.push({ role: 'bot', content: data.response })
-            } catch (e) {
-                this.messages.push({ role: 'bot', content: 'Something went wrong. Please try again.' })
+
+            const evtSource = new EventSource(`http://localhost:8001/api/chat/stream?sessionId=${encodeURIComponent(this.state.chatBotSessionID)}&message=${encodeURIComponent(userInput)}`)
+            evtSource.onmessage = (event) => {
+                const data = JSON.parse(event.data)
+                if (data.type === 'response' || data.type === 'error') {
+                    this.processing = null
+                    this.messages.push({ role: 'bot', type: data.type, content: data.value })
+                    evtSource.close()
+                    this.loading = false
+                } else {
+                    this.processing = { role: 'bot', type: data.type, content: data.value }
+                }
             }
-            this.loading = false
+            evtSource.onerror = (e) => {
+                evtSource.close()
+                this.loading = false
+            }
         }
     }
 }
@@ -120,6 +135,12 @@ export default {
     color: #334155;
     border-bottom-left-radius: 4px;
 }
+.message-bubble.bot[data-type="processing"] {
+    background: #f8fafc;
+    color: #64748b;
+    font-style: italic;
+    opacity: 0.8;
+}
 .bubble-content strong {
     font-size: 12px;
     color: #64748b;
@@ -168,6 +189,39 @@ button:disabled {
     align-items: center;
     padding: 8px 0;
     min-height: 24px;
+}
+.processing-indicator {
+    padding: 8px 16px;
+    background: #f8fafc;
+    border-top: 1px solid #e0e7ef;
+}
+.processing-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.processing-dot {
+    height: 8px;
+    width: 8px;
+    background-color: #3b82f6;
+    border-radius: 50%;
+    display: inline-block;
+    animation: processing-pulse 1.5s infinite;
+}
+.processing-text {
+    font-size: 13px;
+    color: #64748b;
+    font-style: italic;
+}
+@keyframes processing-pulse {
+    0%, 100% {
+        opacity: 0.4;
+        transform: scale(0.8);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
 }
 .dot {
     height: 10px;

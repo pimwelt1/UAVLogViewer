@@ -11,6 +11,7 @@ from .QueryAgent import QueryAgent
 from IPython.display import Image, display
 from pydantic import BaseModel, Field
 import logging
+import pprint
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -77,7 +78,7 @@ PLAN_OR_RESPONSE_PROMPT = """
     A: Respond (explain based on documentation)
 
     Q: What was the duration of the flight?
-    A: Plan: [{{"question": "What long was the flight according to the GPS data ?"}}]
+    A: Plan: [{{"question": "How long was the flight according to the GPS data ?"}}]
 
     Q: Are there anomalies in the GPS data?  
     A: Plan: [Analysis(table_name='GPS_0'), Analysis(table_name='ATT'), Query(question='Are there any anomalies in the ATT data based on the DesRoll, DesPitch, and ErrRP values?), ...]
@@ -166,6 +167,9 @@ class PlanExecuteAgent:
         )
         self.graph = builder.compile(checkpointer=self.memory)
         # display(Image(self.graph.get_graph(xray=True).draw_mermaid_png()))
+        # png_data = self.graph.get_graph(xray=True).draw_mermaid_png()
+        # with open("plan_execute_agent.png", "wb") as f:
+        #     f.write(png_data)
 
 
     def call_query_agent(self, question) -> str:
@@ -173,9 +177,9 @@ class PlanExecuteAgent:
             Generates a SQL query based on a flight-related user question and runs it on the telemetry database.
             Ideal for questions like: 'What was the maximum altitude?' or 'When did signal loss first occur?'
         """
-        logger.info(f"Querying DB: {question}")
+        logger.info("Querying DB: %s", question)
         answer = self.query_agent.call(question)
-        logger.info(f"Got answer: {answer}")
+        logger.info("Got answer:\n%s", pprint.pformat(answer))
         return answer
         
     def analyse_data(self, table_name: str) -> str:
@@ -261,10 +265,10 @@ class PlanExecuteAgent:
         result = self.model.with_structured_output(TreatUserInput).invoke(messages)
         
         if isinstance(result.action, Plan):
-            logger.info(f"Got Plan: {result.action.steps}")
+            logger.info("Got Plan:\n%s", pprint.pformat(result.action.steps))
             return {"plan": result.action.steps}
         else:
-            logger.info(f"Answering: {result.action.response}")
+            logger.info("Answering:\n%s", pprint.pformat(result.action.response))
             return {"response": result.action.response}
 
     def execute_step(self, state):
@@ -273,13 +277,13 @@ class PlanExecuteAgent:
         step = state["plan"][0]  # Get first step
         
         if isinstance(step, Query):
-            logger.info(f"Executing query: {step.question}")
+            logger.info("Executing query: %s", step.question)
             result = self.query_agent.call(step.question)
         elif isinstance(step, Analysis):
-            logger.info(f"Executing analysis: {step.table_name}")
+            logger.info("Executing analysis: %s", step.table_name)
             result = self.analyse_data(step.table_name)
         else:
-            logger.error(f"Unknown step type: {type(step)}")
+            logger.error("Unknown step type: %s", type(step))
             result = "Error: Unknown step type"
         
         return {"past_steps": [(step, result)]}
@@ -311,20 +315,35 @@ class PlanExecuteAgent:
             new_plan = [
                 step for step in output.action.steps if step not in completed_steps
             ]
-            logger.info(f"Last step: {state['past_steps'][-1]}, New Plan: {new_plan}")
+            logger.info("Last step:\n%s\nNew Plan:\n%s", pprint.pformat(state['past_steps'][-1]), pprint.pformat(new_plan))
             return {"plan": new_plan}
 
     def update_conversation_history(self, state):
         logger.info("Updating conversation history")
         if len(state["conversation_history"]) >= 10:
             state["conversation_history"].pop(0)
-        return {
-            "conversation_history": [(state["input"], state["response"])]
-        }
+        return {"conversation_history": [(state["input"], state["response"])]}
 
-    def call(self, input_question: str) -> str:
+    # def call(self, input_question: str) -> str:
+    #     thread = {"configurable": {"thread_id": self.session_id}}
+    #     final_step = None
+    #     logger.info(f"Received user question: {input_question}")
+    #     for step in self.graph.stream({
+    #         "input": input_question,
+    #         "plan": [],
+    #         "past_steps": [],
+    #         "response": "",
+    #         "conversation_history": [],
+    #     }, thread):
+    #         final_step = step
+
+    #     try:
+    #         return final_step['update_history']["conversation_history"][-1][1]
+    #     except Exception as e:
+    #         return "Please reformulate."
+        
+    def call_stream(self, input_question: str):
         thread = {"configurable": {"thread_id": self.session_id}}
-        final_step = None
         logger.info(f"Received user question: {input_question}")
         for step in self.graph.stream({
             "input": input_question,
@@ -333,9 +352,25 @@ class PlanExecuteAgent:
             "response": "",
             "conversation_history": [],
         }, thread):
-            final_step = step
+            if ('get_plan_or_response' in step and "plan" in step['get_plan_or_response'] and len(step['get_plan_or_response']["plan"]) > 0):
+                next_step = step['get_plan_or_response']["plan"][0]
+
+            elif "replan" in step and "plan" in step["replan"] and len(step["replan"]["plan"]) > 0:
+                next_step = step["replan"]["plan"][0]
+            
+            else:
+                next_step = None
+
+            if next_step:
+                if isinstance(next_step, Query):
+                    yield {"type": "query", "value": next_step.question}
+                elif isinstance(next_step, Analysis):
+                    yield {"type": "analysis", "value": next_step.table_name}
+                else:
+                    yield {"type": "error", "value": "Please reformulate."}
 
         try:
-            return final_step['update_history']["conversation_history"][-1][1]
+            response = step['update_history']["conversation_history"][-1][1]
+            yield {"type": "response", "value": response}
         except Exception as e:
-            return "Please reformulate."
+            yield {"type": "error", "value": "Please reformulate."}
